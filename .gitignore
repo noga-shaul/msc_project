@@ -4,4 +4,4 @@
 **/__pycache__/*
 *.png
 *.gif
-cs231n/*
+training_cifar10/cs231n/*
