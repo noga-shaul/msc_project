@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def train(model, criterion, optimizer, train_data, test_data, epochs=1):
@@ -15,7 +17,8 @@ def train(model, criterion, optimizer, train_data, test_data, epochs=1):
         for i, data in enumerate(trainloader, 0):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
-
+            inputs = inputs[:, None]
+            labels = labels[:, None]
             #model.train()  # put model to training mode
             #inputs = inputs.to(device=device, dtype=dtype)  # move to device, e.g. GPU
             #labels = labels.to(device=device, dtype=torch.long)
@@ -24,7 +27,7 @@ def train(model, criterion, optimizer, train_data, test_data, epochs=1):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = model(inputs)
+            outputs, _ = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -49,7 +52,16 @@ def check_accuracy(loader, model):
         for x, y in loader:
             #x = x.to(device=device, dtype=dtype)  # move to device, e.g. GPU
             #y = y.to(device=device, dtype=torch.long)
-            preds = model(x)
+            x = x[:, None]
+            y = y[:, None]
+            preds, _ = model(x)
             MSELoss = nn.MSELoss()
             distortion += MSELoss(y, preds)
         print('Got distortion of %f' % (distortion))
+
+
+def shift_test(model):
+    input_vec = torch.linspace(-0.5, 0.5, 1000)  # input vec
+    input_vec = input_vec[:, None]
+    _, output_vec = model(input_vec)
+    plt.plot(input_vec.detach().numpy(), output_vec.detach().numpy())
