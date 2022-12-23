@@ -18,18 +18,29 @@ from data_generate import CustomSignalDataset
 
 def main():
 
+    ENR = 15
+    ENRlin = 10 ** (ENR / 10)
+    test_len = int(1e4)  # 2e5
+
+    ENR_opt = 15
+    ENR_opt_lin = 10 ** (ENR_opt / 10)
+    beta = (13 / 8) ** (1 / 3) * (ENR_opt_lin) ** (-5 / 6) * np.exp(ENR_opt_lin / 6)
+    dt = 1 / (350 * beta)
+    overload = 6.4
+
     # set rect params:
-    params = {'E': 10,
+    params = {'E': ENRlin,
               'delta': 1,
-              'beta': 10,
-              'res': 0.001,
+              'beta': beta,
+              'res': dt,
+              'overload': 6.4,
               'noise': True,
               'std': 1}
 
     #generate data
-    sigma = 5
-    epoch_len = 100000
-    test_len = 1000
+    sigma = 1
+    epoch_len = 1000
+    test_len = 100
     train_data = CustomSignalDataset(sigma=sigma, epoch_len=epoch_len)
     test_data = CustomSignalDataset(sigma=sigma, epoch_len=test_len)
 
@@ -38,16 +49,16 @@ def main():
     criterion = nn.MSELoss()
     optimizer = optim.Adam(ppm_net.parameters(), lr=learning_rate)
     #optimizer = optim.SGD(ppm_net.parameters(), lr=learning_rate, momentum=0.9)
-    train(ppm_net, criterion, optimizer, train_data, test_data, epochs=1)
+    train(ppm_net, criterion, optimizer, train_data, test_data, epochs=20)
     trained_net = ppm_net
     shift_test(trained_net)
     print()
 
-#main()
+main()
 
 #torch.save(ppm_net, 'C:\\Users\\Noga\\Documents\\git_repositories\\msc_project\\models\\ppm_net_trained_7_11')
-trained_net = torch.load('C:\\Users\\Noga\\Documents\\git_repositories\\msc_project\\models\\ppm_net_trained_7_11.pt')
-shift_test(trained_net)
+#trained_net = torch.load('C:\\Users\\Noga\\Documents\\git_repositories\\msc_project\\models\\ppm_net_trained_7_11.pt')
+#shift_test(trained_net)
 
 
 
