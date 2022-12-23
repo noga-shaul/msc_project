@@ -5,3 +5,4 @@
 *.png
 *.gif
 training_cifar10/cs231n/*
+*.pt
