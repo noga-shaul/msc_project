@@ -10,7 +10,7 @@ import torchvision.transforms as T
 
 import numpy as np
 import scipy
-from ppm_net import Net
+from net_parallel_noise import Net
 from ppm_trainer import train
 from ppm_trainer import shift_test
 from data_generate import CustomSignalDataset
