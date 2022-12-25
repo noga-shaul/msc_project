@@ -6,7 +6,7 @@ from data_generate import CustomSignalDataset
 from torch.utils.data import DataLoader
 
 
-ENR = 15
+ENR = 10
 ENRlin = 10**(ENR/10)
 test_len = int(1e4)  # 2e5
 

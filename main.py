@@ -18,7 +18,7 @@ from data_generate import CustomSignalDataset
 
 def main():
 
-    ENR = 15
+    ENR = 10
     ENRlin = 10 ** (ENR / 10)
     test_len = int(1e4)  # 2e5
 
@@ -33,18 +33,18 @@ def main():
               'delta': 1,
               'beta': beta,
               'res': dt,
-              'overload': 6.4,
+              'overload': overload,
               'noise': True,
               'std': 1}
 
     #generate data
     sigma = 1
-    epoch_len = 1000
+    epoch_len = 500
     test_len = 100
     train_data = CustomSignalDataset(sigma=sigma, epoch_len=epoch_len)
     test_data = CustomSignalDataset(sigma=sigma, epoch_len=test_len)
 
-    learning_rate = 1e-3
+    learning_rate = 1e-2
     ppm_net = Net(params)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(ppm_net.parameters(), lr=learning_rate)

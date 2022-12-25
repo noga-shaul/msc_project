@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 
+
 def train(model, criterion, optimizer, train_data, test_data, epochs=1):
     trainloader = DataLoader(train_data, batch_size=64, shuffle=True)
     valloader = DataLoader(test_data, batch_size=64, shuffle=True) #doto: cancel batch
@@ -38,7 +39,7 @@ def train(model, criterion, optimizer, train_data, test_data, epochs=1):
                 running_loss = 0.0
                 check_accuracy(valloader, model, 'train')
                 print()
-        #scheduler.step()
+        scheduler.step()
 
     print('Finished Training')
 
@@ -70,3 +71,4 @@ def shift_test(model):
     input_vec = input_vec[:, None]
     _, output_vec = model(input_vec)
     plt.plot(input_vec.detach().numpy(), output_vec.detach().numpy())
+    plt.show()

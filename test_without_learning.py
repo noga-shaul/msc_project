@@ -43,25 +43,29 @@ def simulateGaussianPPM(beta, ENRlin, Nrun, overload, dt):
     for n in range(Nrun):
         #generate source - Gaussian Source with edge truncation
         S = np.random.rand(1)
+        #S = 0
         if np.abs(S) > overload:
             S = overload * np.sign(S)
 
-        TxPulse = (np.abs(t - S) < 1 / (2 * beta)) * np.sqrt(beta)
-        TxPulse = np.sqrt(ENRlin) * TxPulse / np.sum((TxPulse**2) * dt)
+        # create rect with noise:
+        r, _ = rect(torch.tensor(S).unsqueeze(0), E=torch.tensor(ENRlin), beta=torch.tensor(beta),
+                       dt=torch.tensor(dt), overload=torch.tensor(overload))
+        #TxPulse = (np.abs(t - S) < 1 / (2 * beta)) * np.sqrt(beta)
+        #TxPulse = np.sqrt(ENRlin) * TxPulse / np.sum((TxPulse**2) * dt)
 
-        noise = np.random.randn(t.shape[0])
-        noise = np.sqrt(1 / (2 * dt)) * noise
-        r = TxPulse + noise
+        #noise = np.random.randn(t.shape[0])
+        #noise = np.sqrt(1 / (2 * dt)) * noise
+        #r = TxPulse + noise
 
         # PPM Correlator receiver
-        PPMcorr = fconv(r, Lx, Ly, Ly2, PPMfreq)
-        PPMcorr_test = np.convolve(r, ppmPulse, 'same')
+        PPMcorr = fconv(r.squeeze(), Lx, Ly, Ly2, PPMfreq)
+        #PPMcorr = np.convolve(r, ppmPulse, 'same')
 
         maxIdx = np.argmax(np.sqrt(ENRlin) * PPMcorr * dt - 0.5 * (t**2))
         sHat_MAP = t[maxIdx]
         currMSE_MAP[n] = (S - sHat_MAP) ** 2
 
-        rectang = rect(torch.tensor(S), E=torch.tensor(ENRlin), beta=torch.tensor(beta), dt=torch.tensor(dt), overload=torch.tensor(overload))
+
         point = 1
 
     MSE = sum(currMSE_MAP)/Nrun

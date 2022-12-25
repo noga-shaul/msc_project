@@ -11,23 +11,24 @@ class Net(nn.Module):
     def __init__(self, params):
         super().__init__()
         self.fc1 = nn.Linear(1, 16)
-        self.fc2 = nn.Linear(16, 32)
-        self.fc3 = nn.Linear(32, 1)
+        self.fc2 = nn.Linear(16, 16)
+        self.fc3 = nn.Linear(16, 1)
         self.fc1_de = nn.Linear(1, 16)
-        self.fc2_de = nn.Linear(16, 32)
-        self.fc3_de = nn.Linear(32, 1)
-        self.conv1 = nn.Conv1d(1, 16, 3, padding=1)
+        self.fc2_de = nn.Linear(16, 16)
+        self.fc3_de = nn.Linear(16, 1)
+        self.conv1 = nn.Conv1d(1, 16, 1, padding=1)
         self.pool = nn.MaxPool1d(2)
-        self.conv2 = nn.Conv1d(16, 32, 3, padding=1)
-        self.conv3 = nn.Conv1d(32, 64, 3, padding=1)
-        self.fc4 = nn.Linear(128, 1)  # input size 32*steps/4
+        self.conv2 = nn.Conv1d(16, 16, 1, padding=1)
+        self.conv3 = nn.Conv1d(16, 16, 1, padding=1)
+        self.fc4 = nn.Linear(16, 1)  # input size 32*steps/4
         self.params = params
 
     def forward(self, x):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)  # x here is scalar
-
+        #temp = F.relu(self.fc1(x))
+        x = torch.clamp(x, min=-self.params['overload'], max=self.params['overload'])
         out_shift = x
         rect_signal, t = rect(torch.zeros_like(x), E=torch.tensor(self.params['E']),
                  delta=torch.tensor(self.params['delta']),
