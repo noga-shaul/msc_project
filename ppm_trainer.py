@@ -5,18 +5,22 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 
-
 def train(model, criterion, optimizer, train_data, test_data, epochs=1):
-    trainloader = DataLoader(train_data, batch_size=64, shuffle=True)
-    valloader = DataLoader(test_data, batch_size=64, shuffle=True) #doto: cancel batch
+    trainloader = DataLoader(train_data, batch_size=128, shuffle=True)
+    valloader = DataLoader(test_data, batch_size=512, shuffle=True) #doto: cancel batch
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=4, gamma=0.1)
-    #model = model.to(device=device)  # move the model parameters to CPU/GPU
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = model.to(device=device)  # move the model parameters to CPU/GPU
     for epoch in range(epochs):  # loop over the dataset multiple times
 
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
             # get the inputs; data is a list of [inputs, labels]
+
             inputs, labels = data
+            inputs = inputs.to(device)
+            labels = labels.to(device)
+
             #inputs = inputs[:, None]
             #labels = labels[:, None]
             #model.train()  # put model to training mode
@@ -27,8 +31,18 @@ def train(model, criterion, optimizer, train_data, test_data, epochs=1):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs, _ = model(inputs)
+            outputs, out_shift = model(inputs)
             loss = criterion(outputs, labels)
+
+            if epoch>=0:
+                l2_lambda = 0.0
+            else:
+                l2_lambda=1.0
+            l2_norm = criterion(out_shift, inputs)
+
+            loss = loss + l2_lambda * l2_norm
+
+
             loss.backward()
             optimizer.step()
 
@@ -37,14 +51,14 @@ def train(model, criterion, optimizer, train_data, test_data, epochs=1):
             if i % 10 == 9:  # print every 10 mini-batches
                 print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss /10 :.3f}')
                 running_loss = 0.0
-                check_accuracy(valloader, model, 'train')
+                check_accuracy(valloader, model, 'train', device)
                 print()
         scheduler.step()
 
     print('Finished Training')
 
 
-def check_accuracy(loader, model, mode):
+def check_accuracy(loader, model, mode, device):
     print('Checking accuracy')
     distortion = 0
     num_samples = 0
@@ -53,12 +67,16 @@ def check_accuracy(loader, model, mode):
         loss = nn.MSELoss(reduction='sum')
         val_num = 0
         for x, y in loader:
+            x, y = x.to(device), y.to(device)
             #x = x.to(device=device, dtype=dtype)  # move to device, e.g. GPU
             #y = y.to(device=device, dtype=torch.long)
             #x = x[:, None]
             #y = y[:, None]
             val_num += x.size(0)
-            preds, _ = model(x)
+            if mode == 'train':
+                preds, _ = model(x, training=True)
+            else:
+                preds, _ = model(x, training=False)
             distortion += loss(y, preds)
         distortion /= val_num
         print('Got distortion of %f' % (distortion))
@@ -67,8 +85,12 @@ def check_accuracy(loader, model, mode):
 
 
 def shift_test(model):
-    input_vec = torch.linspace(-6.4, 6.4, 1000)  # input vec
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    input_vec = torch.linspace(-6.4, 6.4, 1000, device=device)  # input vec
     input_vec = input_vec[:, None]
+    model = model.to(device=device)
     _, output_vec = model(input_vec)
-    plt.plot(input_vec.detach().numpy(), output_vec.detach().numpy())
-    plt.show()
+    #plt.plot(input_vec.detach().cpu().numpy(), output_vec.detach().cpu().numpy())
+    #plt.show()
+    return torch.squeeze(input_vec), torch.squeeze(output_vec)
