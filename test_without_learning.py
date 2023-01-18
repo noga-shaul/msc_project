@@ -30,7 +30,7 @@ def simulateGaussianPPM(beta, ENRlin, Nrun, overload, dt):
 
     #overload = 6.4
     #dt = 1/(350*beta)
-    t = np.arange(-overload, overload, dt)
+    t = np.arange(-overload, overload+dt, dt)
     ppmPulse = (abs(t) < 1/(2*beta)) * np.sqrt(beta)
     ppmPulse = ppmPulse / np.sqrt(np.sum(np.square(ppmPulse)*dt))
 
@@ -42,7 +42,7 @@ def simulateGaussianPPM(beta, ENRlin, Nrun, overload, dt):
 
     for n in range(Nrun):
         #generate source - Gaussian Source with edge truncation
-        S = np.random.rand(1)
+        S = np.random.randn(1)
         #S = 0
         if np.abs(S) > overload:
             S = overload * np.sign(S)
@@ -68,7 +68,7 @@ def simulateGaussianPPM(beta, ENRlin, Nrun, overload, dt):
 
         point = 1
 
-    MSE = sum(currMSE_MAP)/Nrun
+    MSE = np.sum(currMSE_MAP)/Nrun
     return MSE
 
 

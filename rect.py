@@ -1,6 +1,6 @@
 import torch
 
-
+@torch.no_grad()
 def rect(x, E=torch.tensor(1), delta=torch.tensor(1), beta=torch.tensor(10), dt=torch.tensor(0.001), overload=torch.tensor(6.4), noise=True, std=torch.tensor(1)):
     # input: x is tensor scalar in range -0.5<=x<=0.5 represent the time_shift/delta of the rectangular
     #       E is tensor scalar represent the energy limitation

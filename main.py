@@ -22,7 +22,7 @@ def main():
     ENRlin = 10 ** (ENR / 10)
     test_len = int(1e4)  # 2e5
 
-    ENR_opt = 15
+    ENR_opt = 10
     ENR_opt_lin = 10 ** (ENR_opt / 10)
     beta = (13 / 8) ** (1 / 3) * (ENR_opt_lin) ** (-5 / 6) * np.exp(ENR_opt_lin / 6)
     dt = 1 / (350 * beta)
@@ -39,7 +39,7 @@ def main():
 
     #generate data
     sigma = 1
-    epoch_len = 500
+    epoch_len = 1000
     test_len = 100
     train_data = CustomSignalDataset(sigma=sigma, epoch_len=epoch_len)
     test_data = CustomSignalDataset(sigma=sigma, epoch_len=test_len)
