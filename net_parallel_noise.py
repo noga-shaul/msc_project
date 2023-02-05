@@ -37,6 +37,7 @@ class Net(nn.Module):
 
 
     #@torch.no_grad()
+
     def rect(self, x, E, beta, dt, overload, noise_std, noise=True, delta=torch.tensor(1)):
         # input: x is tensor scalar in range -0.5<=x<=0.5 represent the time_shift/delta of the rectangular
         #       E is tensor scalar represent the energy limitation
@@ -54,7 +55,10 @@ class Net(nn.Module):
         # stop = delta * (1+1/beta) / 2
         # steps = 10000 #need to be competable with fc4 size in ppm_net. (stop-start) / res + 1
         # t = torch.linspace(start, stop, steps)
-        t = torch.arange(-overload, overload, dt, device=self.device)  # size of ceil(2*overload/dt)
+        start_t = torch.squeeze(-overload-1/(beta))
+        end_t = torch.squeeze(overload+1/(beta))
+        dt = torch.squeeze(dt)
+        t = torch.arange(start_t, end_t+dt, dt, device=self.device)  # size of ceil(2*overload+1/beta)/dt
         #t.to(self.device)
         # start_rect = -delta / (2 * beta) + x * delta
         # stop_rect = delta / (2 * beta) + x * delta
@@ -76,28 +80,36 @@ class Net(nn.Module):
             noise = torch.sqrt(1 / (2 * dt)) * noise
             TxPulse += noise
 
-        return TxPulse, t
+            #for debug:
+            TxPulse_zeros = (torch.abs(t - torch.zeros_like(x)) < 1 / (2 * beta)).float() * torch.sqrt(beta)
+            TxPulse_zeros = torch.sqrt(E) * TxPulse_zeros / (torch.sum((TxPulse_zeros ** 2), 1, keepdim=True) * dt)
+            #noise_shift =
+            noise_zeros = torch.roll(noise, -int((x[0] // dt).item()))
+            TxPulse_zeros += noise_zeros
+
+        return TxPulse, t, TxPulse_zeros
 
     @torch.no_grad()
-    def find_offset(self, rect_signal, t, x):
+    def find_offset(self, rect_signal, t, x, rect_signal_zeros):
         #convolution with ppm pulse
-        conv_kernel = torch.ones(350, device=self.device) * torch.sqrt(self.params['beta'])
+        conv_kernel = torch.ones(351, device=self.device) * torch.sqrt(self.params['beta'])
         conv_kernel = conv_kernel / torch.sqrt(torch.sum(torch.square(conv_kernel) * self.params['res']))
         conv_kernel = conv_kernel.repeat(1, 1, 1)
         #x = torch.stack((x,t.repeat(x.size(0),1)),1)
         signal_heat_map = F.conv1d(rect_signal, conv_kernel, padding='same')
-        heat_map_max = torch.max(signal_heat_map)
+        #signal_heat_map_zeros = F.conv1d(rect_signal_zeros, conv_kernel, padding='same')
+        heat_map_max = torch.max(signal_heat_map,2).values
         #choosing max
         corr_peak_ind = torch.argmax(signal_heat_map, 2)
         #corr_peak_ind = torch.argmax(torch.sqrt(self.params['E']) * signal_heat_map * self.params['res']
         #                             - 0.5 * ((t) ** 2), 2)
         t = t.repeat(corr_peak_ind.size())
-        t = t[torch.arange(corr_peak_ind.size(0)), torch.squeeze(corr_peak_ind)]
-        t = t.unsqueeze(1)
-        #return t, heat_map_max
-        return t-x, heat_map_max
+        detect = t[torch.arange(corr_peak_ind.size(0)), torch.squeeze(corr_peak_ind)]
+        detect = detect.unsqueeze(1)
+        offset = detect - x
+        return offset, heat_map_max
 
-    def forward(self, x, training=True):
+    def forward(self, x, training=True, noise=True):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)  # x here is scalar
@@ -112,7 +124,7 @@ class Net(nn.Module):
         #x_t=x
         #x_t2=x
         if training:
-            rect_signal, t = self.rect(
+            rect_signal, t, rect_signal_zeros = self.rect(
                 torch.zeros_like(x),
                 #x_t,
                 E=self.params['E'],
@@ -120,15 +132,15 @@ class Net(nn.Module):
                 dt=self.params['res'],
                 overload=self.params['overload'],
                 noise_std=self.params['std'],
-                noise=True,
+                noise=noise,
                 delta=self.params['delta'])
 
             rect_signal = torch.unsqueeze(rect_signal, 1)
-
+            rect_signal_zeros = torch.unsqueeze(rect_signal_zeros, 1)
             #plt.plot(t.cpu().numpy(), np.squeeze(rect_signal[0].cpu().numpy()))
             #plt.show()
 
-            offset, heat_map_max = self.find_offset(rect_signal, t, torch.zeros_like(x))
+            offset, heat_map_max = self.find_offset(rect_signal, t, torch.zeros_like(x), rect_signal_zeros)
             #offset = torch.normal(torch.zeros_like(x),torch.ones_like(x)*0.2)
             #print(torch.mean(offset), torch.std(offset))
             #print(offset)
@@ -137,7 +149,7 @@ class Net(nn.Module):
             #print(torch.mean(offset))
 
         else:
-            rect_signal, t = self.rect(
+            rect_signal, t, rect_signal_zeros = self.rect(
                 #torch.zeros_like(x),
                 x,
                 E=self.params['E'],
@@ -145,7 +157,7 @@ class Net(nn.Module):
                 dt=self.params['res'],
                 overload=self.params['overload'],
                 noise_std=self.params['std'],
-                noise=True,
+                noise=noise,
                 delta=self.params['delta'])
 
             rect_signal = torch.unsqueeze(rect_signal, 1)
@@ -153,9 +165,12 @@ class Net(nn.Module):
             # plt.plot(t.cpu().numpy(), np.squeeze(rect_signal[0].cpu().numpy()))
             # plt.show()
 
-            offset, heat_map_max = self.find_offset(rect_signal, t, x)
+            offset, heat_map_max = self.find_offset(rect_signal, t, x, rect_signal_zeros)
 
         x = x + offset
+
+        x[x > t[-1]] = x[x > t[-1]] + t[0] - t[-1]
+        x[x < t[0]] = x[x < t[0]] + t[-1] - t[0]
 
         x = (F.relu(self.fc1_de(x))) #if needed self.pool can be add
         x = (F.relu(self.fc2_de(x)))
