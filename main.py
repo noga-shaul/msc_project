@@ -17,10 +17,11 @@ from ppm_trainer import shift_test
 from data_generate import CustomSignalDataset
 
 
-def test_distortion(trained_net, test_len):
+def test_distortion(trained_net, test_len, noise=True):
     test_data = CustomSignalDataset(sigma=1, epoch_len=test_len)
     testloader = DataLoader(test_data, batch_size=512, shuffle=True)
-    distortion = check_accuracy(testloader, trained_net, 'test', "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    distortion = check_accuracy(testloader, trained_net, 'test', device, noise=noise)
     #shift_test(trained_net)
     print(distortion)
     return distortion
@@ -28,7 +29,7 @@ def test_distortion(trained_net, test_len):
 
 def main():
 
-    ENR_vec = torch.arange(4, 16)
+    ENR_vec = torch.arange(4, 16) #torch.arange(4, 16)
     distortion_vec = torch.zeros(ENR_vec.size(0))
     shift_test_out = torch.zeros(ENR_vec.size(0), 1000)
     input_vec = torch.linspace(-6.4, 6.4, 1000) # for shift test after training
@@ -37,44 +38,54 @@ def main():
 
         ENR = ENR_vec[i]
         ENRlin = 10 ** (ENR / 10)
-        test_len = int(2e5)  # 2e5
+        final_test_len = int(1e6)  # 2e5
 
         ENR_opt = ENR
         ENR_opt_lin = 10 ** (ENR_opt / 10)
         beta = (13 / 8) ** (1 / 3) * (ENR_opt_lin) ** (-5 / 6) * np.exp(ENR_opt_lin / 6)
-        dt = 1 / (300 * beta)
+        dt = 1 / (351 * beta)
         overload = 6.4
+        noise = True
 
         # set rect params:
         params = {'E': ENRlin,
-                  'delta': 1,
+                  'delta': 1.0,
                   'beta': beta,
                   'res': dt,
-                  'overload': 6.4,
+                  'overload': overload,
                   'noise': True,
-                  'std': 1}
+                  'std': 1.0}
 
         # generate data
         sigma = 1
         epoch_len = 5000
-        test_len = 1000
+        test_len = 5000
         train_data = CustomSignalDataset(sigma=sigma, epoch_len=epoch_len)
         test_data = CustomSignalDataset(sigma=sigma, epoch_len=test_len)
 
         # run training
         learning_rate = 1e-2
-        epochs_num = 20 #change back epochs to 20
-        ppm_net = Net(params)
-        criterion = nn.MSELoss()
-        optimizer = optim.Adam(ppm_net.parameters(), lr=learning_rate)
-        # optimizer = optim.SGD(ppm_net.parameters(), lr=learning_rate, momentum=0.9)
-        train(ppm_net, criterion, optimizer, train_data, test_data, epochs=epochs_num)
-        trained_net = ppm_net
+        epochs_num = 15 #change back epochs to 20
+
+        num_betas = 10 #change to 20
+        best_val = 100
+        for n in range(num_betas):
+            params['beta'] = beta * torch.FloatTensor(1).uniform_(0.5, 1.5)
+            params['res'] = 1/(351*params['beta'])
+            ppm_net = Net(params)
+            criterion = nn.MSELoss()
+            optimizer = optim.Adam(ppm_net.parameters(), lr=learning_rate)
+            # optimizer = optim.SGD(ppm_net.parameters(), lr=learning_rate, momentum=0.9)
+            model, distortion_val = train(ppm_net, criterion, optimizer, train_data, test_data, epochs=epochs_num, noise=noise)
+            if distortion_val < best_val:
+                best_val = distortion_val
+                best_model = model
+        trained_net = best_model
 
         # save train results
-        torch.save(ppm_net, '.\\models\\ppm_net_trained_ENR_'+str(ENR.to('cpu').numpy())+'.pt')
+        torch.save(trained_net, '.\\models\\ppm_net_trained_ENR_'+str(ENR.to('cpu').numpy())+'.pt')
         _, shift_test_out[i, :] = shift_test(trained_net)
-        distortion_vec[i] = test_distortion(trained_net, test_len)
+        distortion_vec[i] = test_distortion(trained_net, final_test_len)
         print(distortion_vec[i])
 
     # save final results
