@@ -5,12 +5,13 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
 
-def train(model, criterion, optimizer, train_data, test_data, epochs=1):
+def train(model, criterion, optimizer, train_data, test_data, epochs=1, noise=True):
     trainloader = DataLoader(train_data, batch_size=128, shuffle=True)
-    valloader = DataLoader(test_data, batch_size=512, shuffle=True) #doto: cancel batch
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=4, gamma=0.1)
+    valloader = DataLoader(test_data, batch_size=1, shuffle=True) #batch=512
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device=device)  # move the model parameters to CPU/GPU
+    best_val = 100
     for epoch in range(epochs):  # loop over the dataset multiple times
 
         running_loss = 0.0
@@ -31,7 +32,7 @@ def train(model, criterion, optimizer, train_data, test_data, epochs=1):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs, out_shift = model(inputs)
+            outputs, out_shift = model(inputs, noise=noise)
             loss = criterion(outputs, labels)
 
             if epoch>=0:
@@ -49,16 +50,23 @@ def train(model, criterion, optimizer, train_data, test_data, epochs=1):
             # print statistics
             running_loss += loss.item()
             if i % 10 == 9:  # print every 10 mini-batches
-                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss /10 :.3f}')
+                print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss /10 :.5f}')
                 running_loss = 0.0
-                check_accuracy(valloader, model, 'train', device)
+                check_accuracy(valloader, model, 'train', device, noise=noise)
                 print()
+
+        distortion_val = check_accuracy(valloader, model, 'test', device, noise=noise)
+        if distortion_val < best_val:
+            best_val = distortion_val
+            best_model = model
         scheduler.step()
 
+
     print('Finished Training')
+    return best_model, best_val
 
 
-def check_accuracy(loader, model, mode, device):
+def check_accuracy(loader, model, mode, device, noise=True):
     print('Checking accuracy')
     distortion = 0
     num_samples = 0
@@ -74,9 +82,9 @@ def check_accuracy(loader, model, mode, device):
             #y = y[:, None]
             val_num += x.size(0)
             if mode == 'train':
-                preds, _ = model(x, training=True)
+                preds, _ = model(x, training=True, noise=noise)
             else:
-                preds, _ = model(x, training=False)
+                preds, _ = model(x, training=False, noise=noise)
             distortion += loss(y, preds)
         distortion /= val_num
         print('Got distortion of %f' % (distortion))
