@@ -94,8 +94,9 @@ def check_accuracy(loader, model, mode, device, noise=True):
 
 def shift_test(model):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    overload = model.params['overload']
 
-    input_vec = torch.linspace(-6.4, 6.4, 1000, device=device)  # input vec
+    input_vec = torch.linspace(-overload, overload, 1000, device=device)  # input vec
     input_vec = input_vec[:, None]
     model = model.to(device=device)
     _, output_vec = model(input_vec)

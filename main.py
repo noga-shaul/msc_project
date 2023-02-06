@@ -38,13 +38,13 @@ def main():
 
         ENR = ENR_vec[i]
         ENRlin = 10 ** (ENR / 10)
-        final_test_len = int(1e6)  # 2e5
+        final_test_len = int(2e5)  # 2e5
 
         ENR_opt = ENR
         ENR_opt_lin = 10 ** (ENR_opt / 10)
         beta = (13 / 8) ** (1 / 3) * (ENR_opt_lin) ** (-5 / 6) * np.exp(ENR_opt_lin / 6)
         dt = 1 / (351 * beta)
-        overload = 6.4
+        overload = 6.35
         noise = True
 
         # set rect params:
@@ -59,7 +59,7 @@ def main():
         # generate data
         sigma = 1
         epoch_len = 5000
-        test_len = 5000
+        test_len = 1000
         train_data = CustomSignalDataset(sigma=sigma, epoch_len=epoch_len)
         test_data = CustomSignalDataset(sigma=sigma, epoch_len=test_len)
 
@@ -67,10 +67,10 @@ def main():
         learning_rate = 1e-2
         epochs_num = 15 #change back epochs to 20
 
-        num_betas = 10 #change to 20
+        num_betas = 1 #change to 20
         best_val = 100
         for n in range(num_betas):
-            params['beta'] = beta * torch.FloatTensor(1).uniform_(0.5, 1.5)
+            params['beta'] = beta #* torch.FloatTensor(1).uniform_(0.5, 1.5)
             params['res'] = 1/(351*params['beta'])
             ppm_net = Net(params)
             criterion = nn.MSELoss()
