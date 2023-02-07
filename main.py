@@ -67,10 +67,15 @@ def main():
         learning_rate = 1e-2
         epochs_num = 15 #change back epochs to 20
 
-        num_betas = 1 #change to 20
+        beta_mult_vec = torch.arange(0.5, 1.8, 0.25)
         best_val = 100
-        for n in range(num_betas):
-            params['beta'] = beta #* torch.FloatTensor(1).uniform_(0.5, 1.5)
+        for n in range(beta_mult_vec.size(0)):
+            params['beta'] = beta * beta_mult_vec[n] #* torch.FloatTensor(1).uniform_(0.5, 1.5)
+
+            print('*********************')
+            print('ENR index: ', i, '/', ENR_vec.size(0), '. Beta index: ', n, '/', beta_mult_vec.size(0))
+            print('ENR: ', ENR, '. beta_mule: ', beta_mult_vec[n], '. Beta: ', params['beta'])
+
             params['res'] = 1/(351*params['beta'])
             ppm_net = Net(params)
             criterion = nn.MSELoss()
